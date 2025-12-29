@@ -139,25 +139,6 @@ class TwitterBot:
         self._save_state(state)
 
         return messages[next_index]
-        
-        # Validate credentials
-        if not client_id:
-            raise ValueError(
-                "Missing required credential: TWITTER_CLIENT_ID. Please check your .env file."
-            )
-
-        if not redirect_uri:
-            raise ValueError(
-                "Missing required credential: REDIRECT_URI. Please check your .env file."
-            )
-
-        # Assign strongly-typed attributes after validation
-        self.client_id: str = client_id
-        self.redirect_uri: str = redirect_uri
-        self.client_secret: str | None = client_secret
-        
-        # Initialize Twitter API v2 client with OAuth 2.0
-        self.client: tweepy.Client | None = None
 
     @staticmethod
     def _is_missing_or_placeholder(value: str | None) -> bool:
