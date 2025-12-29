@@ -62,15 +62,11 @@ class TwitterBot:
             raise ValueError(
                 "Missing required credential: TWITTER_CLIENT_ID. Please check your .env file."
             )
-        if not redirect_uri:
-            raise ValueError(
-                "Missing required credential: REDIRECT_URI. Please check your .env file."
-            )
 
         # Assign strongly-typed attributes after validation
         self.client_id = client_id
-        self.redirect_uri = redirect_uri
         self.client_secret = client_secret
+        self.redirect_uri = redirect_uri or ''
 
         # Initialize Twitter API client lazily after tokens are present
         self.client = None
@@ -176,12 +172,17 @@ class TwitterBot:
         }
 
     def _oauth_handler(self) -> tweepy.OAuth2UserHandler:
+        if not self.redirect_uri:
+            raise ValueError(
+                "Missing required credential: REDIRECT_URI. Set it to your app callback URL."
+            )
         return tweepy.OAuth2UserHandler(
             client_id=self.client_id,
             client_secret=self.client_secret,
             redirect_uri=self.redirect_uri,
             scope=self._scope,
         )
+
 
     def _basic_auth_headers(self) -> dict[str, str]:
         """Return Authorization header for confidential clients (client_id + client_secret)."""
