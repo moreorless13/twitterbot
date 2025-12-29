@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.moreorless13.twitterbot</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/zsh</string>
+      <string>/Users/macbook/Desktop/TwitterBot/twitterbot/run_bot.sh</string>
+    </array>
+
+    <!-- Run three times per day. Adjust hours/minutes as desired. -->
+    <key>StartCalendarInterval</key>
+    <array>
+      <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+      </dict>
+      <dict>
+        <key>Hour</key>
+        <integer>14</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+      </dict>
+      <dict>
+        <key>Hour</key>
+        <integer>19</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+      </dict>
+    </array>
+
+    <!-- Optional: run once at load so you can confirm it works. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/macbook/Desktop/TwitterBot/twitterbot/launchd.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/macbook/Desktop/TwitterBot/twitterbot/launchd.err.log</string>
+  </dict>
+</plist>

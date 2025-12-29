@@ -1,0 +1,88 @@
+services:
+  # 1) Web service to host the OAuth redirect/callback URL over HTTPS.
+  - type: web
+    name: twitterbot-oauth-callback
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn callback_app:app --bind 0.0.0.0:$PORT
+
+  # 2) Cron jobs to run the bot 3x/day.
+  # Render cron schedules use UTC.
+  - type: cron
+    name: twitterbot-post-morning
+    env: python
+    schedule: "0 14 * * *" # 09:00 EST
+    buildCommand: pip install -r requirements.txt
+    startCommand: python twitter_bot.py
+    envVars:
+      - key: DISABLE_ENV_PERSIST
+        value: "1"
+      - key: TWEET_ROTATION_MODE
+        value: "time"
+      - key: TWEET_TIMEZONE
+        value: "America/New_York"
+      - key: TWEET_MESSAGES
+        sync: false
+      - key: TWITTER_CLIENT_ID
+        sync: false
+      - key: TWITTER_CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: TWITTER_ACCESS_TOKEN
+        sync: false
+      - key: TWITTER_REFRESH_TOKEN
+        sync: false
+
+  - type: cron
+    name: twitterbot-post-afternoon
+    env: python
+    schedule: "0 19 * * *" # 14:00 EST
+    buildCommand: pip install -r requirements.txt
+    startCommand: python twitter_bot.py
+    envVars:
+      - key: DISABLE_ENV_PERSIST
+        value: "1"
+      - key: TWEET_ROTATION_MODE
+        value: "time"
+      - key: TWEET_TIMEZONE
+        value: "America/New_York"
+      - key: TWEET_MESSAGES
+        sync: false
+      - key: TWITTER_CLIENT_ID
+        sync: false
+      - key: TWITTER_CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: TWITTER_ACCESS_TOKEN
+        sync: false
+      - key: TWITTER_REFRESH_TOKEN
+        sync: false
+
+  - type: cron
+    name: twitterbot-post-evening
+    env: python
+    schedule: "0 0 * * *" # 19:00 EST
+    buildCommand: pip install -r requirements.txt
+    startCommand: python twitter_bot.py
+    envVars:
+      - key: DISABLE_ENV_PERSIST
+        value: "1"
+      - key: TWEET_ROTATION_MODE
+        value: "time"
+      - key: TWEET_TIMEZONE
+        value: "America/New_York"
+      - key: TWEET_MESSAGES
+        sync: false
+      - key: TWITTER_CLIENT_ID
+        sync: false
+      - key: TWITTER_CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: TWITTER_ACCESS_TOKEN
+        sync: false
+      - key: TWITTER_REFRESH_TOKEN
+        sync: false

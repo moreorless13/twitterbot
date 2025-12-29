@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Twitter Bot OAuth Callback</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 32px; line-height: 1.4; }
+      pre { white-space: pre-wrap; word-break: break-all; padding: 12px; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; }
+      button { padding: 10px 14px; border-radius: 6px; border: 1px solid #d0d7de; background: white; cursor: pointer; }
+      .muted { color: #57606a; }
+    </style>
+  </head>
+  <body>
+    <h1>OAuth callback received</h1>
+    <p class="muted">Copy the full URL below (it contains <code>state</code> and <code>code</code>).</p>
+
+    <pre id="url"></pre>
+    <button id="copy">Copy URL</button>
+    <p id="status" class="muted"></p>
+
+    <script>
+      const url = window.location.href;
+      document.getElementById('url').textContent = url;
+
+      document.getElementById('copy').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          document.getElementById('status').textContent = 'Copied to clipboard.';
+        } catch {
+          document.getElementById('status').textContent = 'Copy failed — manually select and copy the URL.';
+        }
+      });
+    </script>
+  </body>
+</html>

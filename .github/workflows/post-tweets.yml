@@ -1,0 +1,53 @@
+name: Post tweets (3x/day)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions cron is UTC.
+    # 09:00 EST  -> 14:00 UTC
+    # 14:00 EST  -> 19:00 UTC
+    # 19:00 EST  -> 00:00 UTC (next day)
+    # Note: If you observe DST (EDT), these will shift by 1 hour.
+    - cron: "0 14 * * *"
+    - cron: "0 19 * * *"
+    - cron: "0 0 * * *"
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Post tweet
+        env:
+          # Prevent writing tokens/state files in CI
+          DISABLE_ENV_PERSIST: "1"
+
+          # OAuth2 app settings
+          TWITTER_CLIENT_ID: ${{ secrets.TWITTER_CLIENT_ID }}
+          TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
+          REDIRECT_URI: ${{ secrets.REDIRECT_URI }}
+
+          # OAuth2 user tokens (generate locally once, then paste into Secrets)
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_REFRESH_TOKEN: ${{ secrets.TWITTER_REFRESH_TOKEN }}
+
+          # Message rotation
+          TWEET_ROTATION_MODE: "time"
+          TWEET_TIMEZONE: "America/New_York"
+          TWEET_MESSAGES: ${{ vars.TWEET_MESSAGES }}
+        run: |
+          python twitter_bot.py

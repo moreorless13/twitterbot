@@ -53,9 +53,20 @@ pip install -r requirements.txt
    ```
    TWITTER_CLIENT_ID=your_client_id_here
    TWITTER_CLIENT_SECRET=your_client_secret_here
+   REDIRECT_URI=your_redirect_uri_here
    TWITTER_ACCESS_TOKEN=your_access_token_here
    TWITTER_REFRESH_TOKEN=your_refresh_token_here
    ```
+
+#### Redirect URI (Callback URL)
+
+You can use either:
+
+- **Local dev**: `http://127.0.0.1:5000/oauth/callback`
+- **GitHub Pages** (recommended if you want an https callback):
+  `https://<YOUR_GITHUB_USERNAME>.github.io/<YOUR_REPO_NAME>/oauth-callback.html`
+
+This repo includes a minimal GitHub Pages callback page at `docs/oauth-callback.html`.
 
 3. (Optional) Customize your tweet message:
    ```
@@ -83,6 +94,44 @@ Run the bot to post a tweet:
 python twitter_bot.py
 ```
 
+## Scheduling (macOS) — Post 3 Times Per Day
+
+To post automatically three times per day on macOS, use `launchd`.
+
+This repo includes:
+- `run_bot.sh` — runs the bot using the repo virtualenv and loads `.env`
+- `com.moreorless13.twitterbot.plist` — `launchd` job that runs 3 times per day (default: 09:00, 14:00, 19:00)
+
+### 1) Make the runner executable
+
+```bash
+chmod +x run_bot.sh
+```
+
+### 2) Install the LaunchAgent
+
+```bash
+mkdir -p ~/Library/LaunchAgents
+cp com.moreorless13.twitterbot.plist ~/Library/LaunchAgents/
+```
+
+### 3) Load (start) the scheduler
+
+```bash
+launchctl unload -w ~/Library/LaunchAgents/com.moreorless13.twitterbot.plist 2>/dev/null || true
+launchctl load -w ~/Library/LaunchAgents/com.moreorless13.twitterbot.plist
+```
+
+If you change the schedule times inside the `.plist`, run the unload/load commands again to apply changes.
+
+Logs will be written to:
+- `launchd.out.log`
+- `launchd.err.log`
+
+**Important**:
+- The `.plist` contains an absolute path to `run_bot.sh`. If you move this repo, update the path inside `com.moreorless13.twitterbot.plist` before loading it.
+- X/Twitter may block exact duplicate tweets. If you run on a schedule, prefer rotating messages via `TWEET_MESSAGES`.
+
 The bot will:
 1. Load credentials from `.env` file
 2. Authenticate with Twitter API v2
@@ -97,6 +146,67 @@ You can customize the tweet message in two ways:
 ```
 TWEET_MESSAGE=Hello Twitter! This is my automated bot 🤖
 ```
+
+**Option 1b (recommended for scheduling)**: Rotate multiple messages with `TWEET_MESSAGES`:
+```
+TWEET_MESSAGES=First tweet of the day!|Second tweet later today!|Third tweet this evening!
+```
+
+When `TWEET_MESSAGES` is set, each run posts the *next* message in the list.
+
+## Deploy & Schedule on GitHub (Server)
+
+If you want this to run on a server (not your Mac), the simplest option is GitHub Actions.
+
+This repo includes a scheduled workflow: `.github/workflows/post-tweets.yml`.
+
+### 1) Push the repo to GitHub
+
+Create a GitHub repository and push this folder.
+
+### 2) Add GitHub Secrets
+
+In your repo: **Settings → Secrets and variables → Actions → Secrets**, add:
+- `TWITTER_CLIENT_ID`
+- `TWITTER_CLIENT_SECRET`
+- `REDIRECT_URI` (must match the redirect URI you used when generating tokens)
+- `TWITTER_ACCESS_TOKEN`
+- `TWITTER_REFRESH_TOKEN` (recommended so the workflow can refresh when needed)
+
+### 2b) Generate tokens using the GitHub Pages redirect URI (one-time)
+
+If you change `REDIRECT_URI`, you must re-authorize and generate new tokens.
+
+1. Enable GitHub Pages for this repo:
+   - Repo **Settings → Pages**
+   - Source: **Deploy from a branch**
+   - Branch: `main` (or `master`) and folder: `/docs`
+2. Set `REDIRECT_URI` in your local `.env` to your Pages URL:
+   - `https://<YOUR_GITHUB_USERNAME>.github.io/<YOUR_REPO_NAME>/oauth-callback.html`
+3. Run locally:
+   - `python twitter_bot.py --authorize`
+4. Authorize in the browser; you’ll land on the GitHub Pages callback page.
+5. Copy the **full** URL shown there and run:
+   - `python twitter_bot.py --callback-url "<PASTE_FULL_URL>"`
+6. Copy the resulting `TWITTER_ACCESS_TOKEN` / `TWITTER_REFRESH_TOKEN` values into GitHub Secrets.
+
+### 3) Add GitHub Variable for your 3 tweets
+
+In **Settings → Secrets and variables → Actions → Variables**, add:
+- `TWEET_MESSAGES` = `tweet1|tweet2|tweet3`
+
+### 4) Enable the schedule
+
+The workflow runs 3x/day using GitHub cron (UTC). For **EST** it is set to:
+- 09:00 EST → 14:00 UTC
+- 14:00 EST → 19:00 UTC
+- 19:00 EST → 00:00 UTC
+
+**Note:** GitHub cron is always UTC. If you observe DST (EDT), these will shift by 1 hour unless you update the cron entries.
+
+### 5) Test it manually
+
+Go to **Actions → Post tweets (3x/day) → Run workflow**.
 
 **Option 2**: Modify the bot script to implement custom logic for generating tweet content.
 
