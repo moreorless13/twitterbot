@@ -176,30 +176,45 @@ class TwitterBot:
             raise ValueError(
                 "Missing required credential: REDIRECT_URI. Set it to your app callback URL."
             )
+
+        client_secret: str | None
+        if self._oauth2_client_auth_mode() == 'none':
+            client_secret = None
+        else:
+            client_secret = self.client_secret
+
         return tweepy.OAuth2UserHandler(
             client_id=self.client_id,
-            client_secret=self.client_secret,
+            client_secret=client_secret,
             redirect_uri=self.redirect_uri,
             scope=self._scope,
         )
 
+    @staticmethod
+    def _oauth2_client_auth_mode() -> str:
+        """Return OAuth2 client auth mode: 'auto' (default), 'basic', or 'none'."""
+        raw = os.getenv('TWITTER_OAUTH2_CLIENT_AUTH', 'auto').strip().lower()
+        if raw in {'none', 'basic'}:
+            return raw
+        return 'auto'
 
-    def _basic_auth_headers(self) -> dict[str, str]:
-        """Return Authorization header for confidential clients (client_id + client_secret)."""
-        if self._is_missing_or_placeholder(self.client_secret):
-            return {}
-
-        # requests can build Basic auth for us, but we want a plain header dict.
+    def _basic_auth(self) -> HTTPBasicAuth | None:
+        """Return HTTPBasicAuth for confidential clients, else None for public/PKCE clients."""
+        mode = self._oauth2_client_auth_mode()
+        if mode == 'none':
+            return None
+        if mode == 'basic' and self._is_missing_or_placeholder(self.client_secret):
+            raise ValueError(
+                "TWITTER_OAUTH2_CLIENT_AUTH=basic requires TWITTER_CLIENT_SECRET to be set."
+            )
+        if mode == 'auto' and self._is_missing_or_placeholder(self.client_secret):
+            return None
         assert self.client_secret is not None
-        auth = HTTPBasicAuth(self.client_id, self.client_secret)
-        prep = requests.Request('POST', self._token_url, auth=auth).prepare()
-        header_value = prep.headers.get('Authorization')
-        return {'Authorization': header_value} if header_value else {}
+        return HTTPBasicAuth(self.client_id, self.client_secret)
 
     def _exchange_code_for_token(self, code: str, code_verifier: str) -> dict:
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
-            **self._basic_auth_headers(),
         }
 
         data: dict[str, str] = {
@@ -208,11 +223,24 @@ class TwitterBot:
             'redirect_uri': self.redirect_uri,
             'code_verifier': code_verifier,
         }
-        # If we don't have a client secret, include client_id in body.
-        if self._is_missing_or_placeholder(self.client_secret):
+        auth = self._basic_auth()
+        # Public clients must include client_id in body (no Authorization header).
+        if auth is None:
             data['client_id'] = self.client_id
 
-        resp = requests.post(self._token_url, headers=headers, data=data, timeout=30)
+        resp = requests.post(self._token_url, headers=headers, data=data, auth=auth, timeout=30)
+        # Some Twitter app configs behave like public/PKCE clients even when a client secret exists.
+        # If Twitter rejects the Basic-auth attempt with "Missing valid authorization header", retry as public.
+        if (
+            resp.status_code == 401
+            and auth is not None
+            and 'unauthorized_client' in resp.text
+            and 'authorization header' in resp.text.lower()
+        ):
+            data_public = dict(data)
+            data_public['client_id'] = self.client_id
+            resp = requests.post(self._token_url, headers=headers, data=data_public, auth=None, timeout=30)
+
         if resp.status_code >= 400:
             raise Exception(f"Token exchange failed ({resp.status_code}): {resp.text}")
         return resp.json()
@@ -220,17 +248,27 @@ class TwitterBot:
     def _refresh_token(self, refresh_token: str) -> dict:
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
-            **self._basic_auth_headers(),
         }
 
         data: dict[str, str] = {
             'grant_type': 'refresh_token',
             'refresh_token': refresh_token,
         }
-        if self._is_missing_or_placeholder(self.client_secret):
+        auth = self._basic_auth()
+        if auth is None:
             data['client_id'] = self.client_id
 
-        resp = requests.post(self._token_url, headers=headers, data=data, timeout=30)
+        resp = requests.post(self._token_url, headers=headers, data=data, auth=auth, timeout=30)
+        if (
+            resp.status_code == 401
+            and auth is not None
+            and 'unauthorized_client' in resp.text
+            and 'authorization header' in resp.text.lower()
+        ):
+            data_public = dict(data)
+            data_public['client_id'] = self.client_id
+            resp = requests.post(self._token_url, headers=headers, data=data_public, auth=None, timeout=30)
+
         if resp.status_code >= 400:
             raise Exception(f"Token refresh failed ({resp.status_code}): {resp.text}")
         return resp.json()
