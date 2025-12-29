@@ -194,6 +194,45 @@ class TwitterBot:
         return HTTPBasicAuth(self.client_id, self.client_secret)
 
     def _exchange_code_for_token(self, code: str, code_verifier: str) -> dict:
+        def _oauth_error_details(resp: requests.Response) -> str:
+            try:
+                payload = resp.json()
+            except Exception:
+                payload = None
+
+            error = None
+            error_description = None
+            if isinstance(payload, dict):
+                error = payload.get('error')
+                error_description = payload.get('error_description') or payload.get('detail')
+
+            body_preview = resp.text.strip()
+            if len(body_preview) > 800:
+                body_preview = body_preview[:800] + '…'
+
+            parts: list[str] = [f"HTTP {resp.status_code}"]
+            if resp.reason:
+                parts.append(resp.reason)
+            if error:
+                parts.append(f"error={error}")
+            if error_description:
+                parts.append(f"desc={error_description}")
+            if body_preview:
+                parts.append(f"body={body_preview}")
+            return " | ".join(parts)
+
+        def _should_retry_as_public(resp: requests.Response) -> bool:
+            text = (resp.text or '').lower()
+            return (
+                resp.status_code in {400, 401}
+                and (
+                    'authorization header' in text
+                    or 'missing valid authorization header' in text
+                    or 'unauthorized_client' in text
+                    or 'invalid_client' in text
+                )
+            )
+
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
         }
@@ -203,30 +242,72 @@ class TwitterBot:
             'code': code,
             'redirect_uri': self.redirect_uri,
             'code_verifier': code_verifier,
+            # Twitter is tolerant of including client_id even when using Basic auth.
+            'client_id': self.client_id,
         }
         auth = self._basic_auth()
-        # Public clients must include client_id in body (no Authorization header).
-        if auth is None:
-            data['client_id'] = self.client_id
 
         resp = requests.post(self._token_url, headers=headers, data=data, auth=auth, timeout=30)
         # Some Twitter app configs behave like public/PKCE clients even when a client secret exists.
-        # If Twitter rejects the Basic-auth attempt with "Missing valid authorization header", retry as public.
-        if (
-            resp.status_code == 401
-            and auth is not None
-            and 'unauthorized_client' in resp.text
-            and 'authorization header' in resp.text.lower()
-        ):
+        # If Twitter rejects the Basic-auth attempt, retry as public.
+        if auth is not None and _should_retry_as_public(resp):
             data_public = dict(data)
             data_public['client_id'] = self.client_id
             resp = requests.post(self._token_url, headers=headers, data=data_public, auth=None, timeout=30)
 
         if resp.status_code >= 400:
-            raise Exception(f"Token exchange failed ({resp.status_code}): {resp.text}")
+            hint = ""
+            lower = (resp.text or "").lower()
+            if 'invalid_grant' in lower:
+                hint = " Hint: the authorization code may be expired or already used; re-run --authorize and use the new redirect URL once."
+            elif 'redirect' in lower and 'uri' in lower:
+                hint = " Hint: ensure REDIRECT_URI exactly matches the callback URL configured in your Twitter app (including https/http, path, and trailing slash)."
+            elif 'code_verifier' in lower or 'pkce' in lower:
+                hint = " Hint: PKCE verifier mismatch; re-run --authorize and immediately run --callback-url from the same machine/environment."
+
+            raise Exception(f"Token exchange failed. {_oauth_error_details(resp)}.{hint}")
         return resp.json()
 
     def _refresh_token(self, refresh_token: str) -> dict:
+        def _oauth_error_details(resp: requests.Response) -> str:
+            try:
+                payload = resp.json()
+            except Exception:
+                payload = None
+
+            error = None
+            error_description = None
+            if isinstance(payload, dict):
+                error = payload.get('error')
+                error_description = payload.get('error_description') or payload.get('detail')
+
+            body_preview = resp.text.strip()
+            if len(body_preview) > 800:
+                body_preview = body_preview[:800] + '…'
+
+            parts: list[str] = [f"HTTP {resp.status_code}"]
+            if resp.reason:
+                parts.append(resp.reason)
+            if error:
+                parts.append(f"error={error}")
+            if error_description:
+                parts.append(f"desc={error_description}")
+            if body_preview:
+                parts.append(f"body={body_preview}")
+            return " | ".join(parts)
+
+        def _should_retry_as_public(resp: requests.Response) -> bool:
+            text = (resp.text or '').lower()
+            return (
+                resp.status_code in {400, 401}
+                and (
+                    'authorization header' in text
+                    or 'missing valid authorization header' in text
+                    or 'unauthorized_client' in text
+                    or 'invalid_client' in text
+                )
+            )
+
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
         }
@@ -234,24 +315,18 @@ class TwitterBot:
         data: dict[str, str] = {
             'grant_type': 'refresh_token',
             'refresh_token': refresh_token,
+            'client_id': self.client_id,
         }
         auth = self._basic_auth()
-        if auth is None:
-            data['client_id'] = self.client_id
 
         resp = requests.post(self._token_url, headers=headers, data=data, auth=auth, timeout=30)
-        if (
-            resp.status_code == 401
-            and auth is not None
-            and 'unauthorized_client' in resp.text
-            and 'authorization header' in resp.text.lower()
-        ):
+        if auth is not None and _should_retry_as_public(resp):
             data_public = dict(data)
             data_public['client_id'] = self.client_id
             resp = requests.post(self._token_url, headers=headers, data=data_public, auth=None, timeout=30)
 
         if resp.status_code >= 400:
-            raise Exception(f"Token refresh failed ({resp.status_code}): {resp.text}")
+            raise Exception(f"Token refresh failed. {_oauth_error_details(resp)}")
         return resp.json()
 
     def get_authorization_url(self) -> str:
