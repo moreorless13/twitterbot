@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import tweepy
 import requests
 from requests.auth import HTTPBasicAuth
+from xdk.oauth2_auth import OAuth2PKCEAuth
 
 # Load environment variables from .env file
 load_dotenv()
@@ -67,6 +68,16 @@ class TwitterBot:
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri or ''
+
+        # PKCE auth helper (X / Twitter user context)
+        # X expects space-separated scopes.
+        self._pkce = OAuth2PKCEAuth(
+            client_id=self.client_id,
+            redirect_uri=self.redirect_uri,
+            scope=' '.join(self._scope),
+            client_secret=self.client_secret,
+            client_auth=os.getenv('TWITTER_OAUTH2_CLIENT_AUTH', 'auto'),
+        )
 
         # Initialize Twitter API client lazily after tokens are present
         self.client = None
@@ -331,18 +342,16 @@ class TwitterBot:
 
     def get_authorization_url(self) -> str:
         """Return the OAuth 2.0 authorization URL for the configured client."""
-        handler = self._oauth_handler()
-        auth_url = handler.get_authorization_url()
+        # Generate auth URL via PKCE helper.
+        auth_url = self._pkce.get_authorization_url()
 
         # Persist PKCE verifier/state so a later process can exchange the callback.
-        code_verifier = getattr(getattr(handler, '_client', None), 'code_verifier', None)
-        state = getattr(handler, '_state', None)
-        if code_verifier:
-            self._persist_env_value('TWITTER_OAUTH2_CODE_VERIFIER', code_verifier)
-            os.environ['TWITTER_OAUTH2_CODE_VERIFIER'] = code_verifier
-        if state:
-            self._persist_env_value('TWITTER_OAUTH2_STATE', state)
-            os.environ['TWITTER_OAUTH2_STATE'] = state
+        if self._pkce.code_verifier:
+            self._persist_env_value('TWITTER_OAUTH2_CODE_VERIFIER', self._pkce.code_verifier)
+            os.environ['TWITTER_OAUTH2_CODE_VERIFIER'] = self._pkce.code_verifier
+        if self._pkce.state:
+            self._persist_env_value('TWITTER_OAUTH2_STATE', self._pkce.state)
+            os.environ['TWITTER_OAUTH2_STATE'] = self._pkce.state
 
         return auth_url
 
@@ -372,7 +381,10 @@ class TwitterBot:
         if returned_state and returned_state != state:
             raise ValueError("State mismatch. Re-run --authorize and try again with the new callback URL.")
 
-        token = self._exchange_code_for_token(code=code, code_verifier=code_verifier)
+        # Re-hydrate PKCE helper with the persisted verifier/state, then exchange.
+        self._pkce.code_verifier = code_verifier
+        self._pkce.state = state
+        token = self._pkce.fetch_token(authorization_response=callback_url)
 
         access_token = token.get('access_token')
         refresh_token = token.get('refresh_token')
