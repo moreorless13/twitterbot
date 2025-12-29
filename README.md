@@ -50,6 +50,17 @@ pip install -r requirements.txt
    ```
 
 2. Edit `.env` and add your Twitter API credentials:
+   
+   **Option A - Using Bearer Token + OAuth 2.0 (Recommended):**
+   ```
+   TWITTER_BEARER_TOKEN=your_bearer_token_here
+   TWITTER_CLIENT_ID=your_client_id_here
+   TWITTER_CLIENT_SECRET=your_client_secret_here
+   TWITTER_ACCESS_TOKEN=your_access_token_here
+   TWITTER_REFRESH_TOKEN=your_refresh_token_here
+   ```
+   
+   **Option B - Using OAuth 2.0 User Context Only:**
    ```
    TWITTER_CLIENT_ID=your_client_id_here
    TWITTER_CLIENT_SECRET=your_client_secret_here
@@ -68,10 +79,19 @@ pip install -r requirements.txt
 2. Create a new project and app (if you haven't already)
 3. Navigate to your app settings
 4. Under "User authentication settings", set up OAuth 2.0
-5. Generate your access token and refresh token
-6. Copy the credentials to your `.env` file
+   - Set app permissions to **Read and Write** (required for posting)
+   - Set Type of App to "Web App, Automated App or Bot"
+   - Add a callback URL (can be http://localhost:3000 for testing)
+5. In the "Keys and tokens" tab:
+   - Generate **Bearer Token** (for app-level authentication)
+   - Generate **OAuth 2.0 Client ID and Client Secret**
+   - Generate **Access Token and Secret** (note: the secret is your refresh token for OAuth 2.0)
+6. Copy all credentials to your `.env` file
 
-**Important**: Make sure your app has **Read and Write** permissions to post tweets.
+**Important**: 
+- Make sure your app has **Read and Write** permissions to post tweets
+- The Access Token and Access Token Secret are generated with your user context
+- For OAuth 2.0, the "Access Token Secret" functions as your refresh token
 
 ## Usage
 

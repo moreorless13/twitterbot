@@ -18,16 +18,20 @@ class TwitterBot:
     def __init__(self):
         """Initialize the Twitter bot with OAuth 2.0 credentials"""
         # Get credentials from environment variables
+        self.bearer_token = os.getenv('TWITTER_BEARER_TOKEN')
         self.client_id = os.getenv('TWITTER_CLIENT_ID')
         self.client_secret = os.getenv('TWITTER_CLIENT_SECRET')
         self.access_token = os.getenv('TWITTER_ACCESS_TOKEN')
         self.refresh_token = os.getenv('TWITTER_REFRESH_TOKEN')
         
-        # Validate credentials
-        if not all([self.client_id, self.client_secret, self.access_token]):
+        # Validate credentials - need either bearer token or OAuth 2.0 user tokens
+        has_oauth2_user = all([self.client_id, self.client_secret, self.access_token])
+        has_bearer = self.bearer_token is not None
+        
+        if not (has_oauth2_user or has_bearer):
             raise ValueError(
                 "Missing required credentials. Please check your .env file.\n"
-                "Required: TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET, TWITTER_ACCESS_TOKEN"
+                "Required: Either TWITTER_BEARER_TOKEN or all of (TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET, TWITTER_ACCESS_TOKEN)"
             )
         
         # Initialize Twitter API v2 client with OAuth 2.0
@@ -37,14 +41,31 @@ class TwitterBot:
     def _authenticate(self):
         """Authenticate with Twitter API v2 using OAuth 2.0"""
         try:
-            # Create client with OAuth 2.0 user authentication
-            self.client = tweepy.Client(
-                bearer_token=None,
-                consumer_key=self.client_id,
-                consumer_secret=self.client_secret,
-                access_token=self.access_token,
-                access_token_secret=self.refresh_token
-            )
+            # Create client with OAuth 2.0 authentication
+            # For posting tweets, we need user context authentication
+            if self.bearer_token:
+                # Bearer token can be used for app-only authentication
+                # But for posting tweets, we need user context with OAuth 2.0 tokens
+                if all([self.client_id, self.client_secret, self.access_token]):
+                    # Use OAuth 2.0 user context with bearer token
+                    self.client = tweepy.Client(
+                        bearer_token=self.bearer_token,
+                        consumer_key=self.client_id,
+                        consumer_secret=self.client_secret,
+                        access_token=self.access_token,
+                        access_token_secret=self.refresh_token
+                    )
+                else:
+                    # Bearer token only (read-only operations)
+                    self.client = tweepy.Client(bearer_token=self.bearer_token)
+            else:
+                # OAuth 2.0 user authentication without bearer token
+                self.client = tweepy.Client(
+                    consumer_key=self.client_id,
+                    consumer_secret=self.client_secret,
+                    access_token=self.access_token,
+                    access_token_secret=self.refresh_token
+                )
             print("✓ Successfully authenticated with Twitter API v2")
         except Exception as e:
             raise Exception(f"Authentication failed: {str(e)}")
