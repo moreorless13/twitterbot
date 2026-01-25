@@ -58,7 +58,6 @@ def make_token():
 
  
 def create_post(payload, token):
-     print(("Posting!"))
      return requests.request(
      "POST",
      "https://api.x.com/2/tweets",
@@ -109,7 +108,7 @@ def oauth_callback():
             r.set("token", json.dumps(token))
         except Exception:
             pass
-    payload = {"text": "Hello, world! This is an automated tweet."}
+    payload = {"text": AUTOMATED_TWEET} if (AUTOMATED_TWEET := os.environ.get("AUTOMATED_TWEET")) else {"text": "Hello, world!"}
     tweet_resp = create_post(payload, token)
     try:
         body = tweet_resp.json()
