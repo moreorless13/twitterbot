@@ -38,7 +38,7 @@ token_url = "https://api.x.com/2/oauth2/token"
 
 scopes = ["tweet.read", "users.read", "tweet.write", "offline.access"]
 
-
+AUTOMATED_TWEET = os.environ.get("AUTOMATED_TWEET")
 
 def generate_pkce():
     verifier = base64.urlsafe_b64encode(os.urandom(30)).decode("utf-8")
@@ -108,10 +108,13 @@ def oauth_callback():
             r.set("token", json.dumps(token))
         except Exception:
             pass
-    payload = {"text": AUTOMATED_TWEET} if (AUTOMATED_TWEET := os.environ.get("AUTOMATED_TWEET")) else {"text": "Hello, world!"}
+    payload = {"text": AUTOMATED_TWEET} 
+    print(payload)
+    print(token)
     tweet_resp = create_post(payload, token)
     try:
         body = tweet_resp.json()
+        print(body)
     except ValueError:
         body = {"error": "Non-JSON response from X API", "text": tweet_resp.text}
     return body, tweet_resp.status_code
