@@ -13,12 +13,16 @@ from flask import Flask, request, redirect, session, url_for, render_template
 
 
 load_dotenv()
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY env var not set. Cannot start.")
 
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
 redirect_uri = os.getenv("REDIRECT_URI")
+
 r = None
-print("Connecting to Redis...")
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 try:
     _redis = redis.from_url(redis_url)
@@ -27,15 +31,9 @@ try:
 except Exception:
     r = None
     
-app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY")
-if not app.secret_key:
-    raise RuntimeError("FLASK_SECRET_KEY env var not set. Cannot start.")
-
 
 auth_url = "https://x.com/i/oauth2/authorize"
 token_url = "https://api.x.com/2/oauth2/token"
-
 
 
 scopes = ["tweet.read", "users.read", "tweet.write", "offline.access"]
