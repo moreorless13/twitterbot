@@ -15,6 +15,7 @@ from flask import Flask, request, redirect, session, url_for, render_template
 load_dotenv()
 
 r = None
+print("Connecting to Redis...")
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 try:
     _redis = redis.from_url(redis_url)
@@ -29,9 +30,10 @@ if not app.secret_key:
 
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
-
+print("authorize")
 auth_url = "https://x.com/i/oauth2/authorize"
 token_url = "https://api.x.com/2/oauth2/token"
+print("redirect")
 redirect_uri = os.getenv("REDIRECT_URI")
 
 scopes = ["tweet.read", "users.read", "tweet.write", "offline.access"]
