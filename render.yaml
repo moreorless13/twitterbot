@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: twitterbot-web
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+
+  - type: cron
+    name: twitterbot-morning
+    env: python
+    schedule: "0 14 * * *"   # 9:00 AM ET (UTC)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python rotating_tweets.py
+
+  - type: cron
+    name: twitterbot-midday
+    env: python
+    schedule: "0 18 * * *"   # 1:00 PM ET (UTC)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python rotating_tweets.py
+
+  - type: cron
+    name: twitterbot-evening
+    env: python
+    schedule: "0 23 * * *"   # 6:00 PM ET (UTC)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python rotating_tweets.py
