@@ -5,24 +5,74 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
+    envVars:
+      - key: CLIENT_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
 
   - type: cron
     name: twitterbot-morning
     env: python
     schedule: "0 14 * * *"   # 9:00 AM ET (UTC)
     buildCommand: pip install -r requirements.txt
-    startCommand: python rotating_tweets.py
+    startCommand: python3 -u rotating_tweets.py
+    envVars:
+      - key: CLIENT_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: AUTOMATED_TWEET
+        sync: false
 
   - type: cron
     name: twitterbot-midday
     env: python
     schedule: "0 18 * * *"   # 1:00 PM ET (UTC)
     buildCommand: pip install -r requirements.txt
-    startCommand: python rotating_tweets.py
+    startCommand: python3 -u rotating_tweets.py
+    envVars:
+      - key: CLIENT_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: AUTOMATED_TWEET
+        sync: false
 
   - type: cron
     name: twitterbot-evening
     env: python
     schedule: "0 23 * * *"   # 6:00 PM ET (UTC)
     buildCommand: pip install -r requirements.txt
-    startCommand: python rotating_tweets.py
+    startCommand: python3 -u rotating_tweets.py
+    envVars:
+      - key: CLIENT_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: AUTOMATED_TWEET
+        sync: false

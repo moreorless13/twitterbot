@@ -38,8 +38,6 @@ token_url = "https://api.x.com/2/oauth2/token"
 
 scopes = ["tweet.read", "users.read", "tweet.write", "offline.access"]
 
-AUTOMATED_TWEET = os.environ.get("AUTOMATED_TWEET")
-
 def generate_pkce():
     verifier = base64.urlsafe_b64encode(os.urandom(30)).decode("utf-8")
     verifier = re.sub("[^a-zA-Z0-9]+", "", verifier)
@@ -71,18 +69,23 @@ def create_post(payload, token):
 @app.route("/")
 def demo():
     code_verifier, code_challenge = generate_pkce()
+    print("Generated code_verifier:", code_verifier)
     oauth = make_token()
+    print("OAuth session created.")
     authorization_url, state = oauth.authorization_url(
         auth_url,
         code_challenge=code_challenge,
         code_challenge_method="S256",
     )
+    print("Authorization URL generated:", authorization_url)
     session["oauth_state"] = state
     session["code_verifier"] = code_verifier
+    
     return redirect(authorization_url)
 
 @app.route("/oauth/callback", methods=["GET"])
 def oauth_callback():
+    print("OAuth callback received.")
     code = request.args.get("code")
     code_verifier = session.get("code_verifier")
     state = session.get("oauth_state")
@@ -101,20 +104,22 @@ def oauth_callback():
         code_verifier=code_verifier,
         code=code,
     )
+    print("Obtained token:", token)
 
     session["token"] = token
     if r is not None:
         try:
             r.set("token", json.dumps(token))
         except Exception:
-            pass
-    payload = {"text": AUTOMATED_TWEET} 
-    print(payload)
-    print(token)
+            raise RuntimeError("Failed to save token to Redis.")
+        
+    payload = {"text": AUTOMATED_TWEET} if (AUTOMATED_TWEET := os.environ.get("AUTOMATED_TWEET")) else {"text": "Hello, world!"}
+   
     tweet_resp = create_post(payload, token)
+    print("Tweet response status:", tweet_resp.status_code)
     try:
         body = tweet_resp.json()
-        print(body)
+        
     except ValueError:
         body = {"error": "Non-JSON response from X API", "text": tweet_resp.text}
     return body, tweet_resp.status_code

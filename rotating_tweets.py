@@ -16,14 +16,21 @@ client_id = os.environ.get("CLIENT_ID")
 client_secret = os.environ.get("CLIENT_SECRET")
 token_url = "https://api.x.com/2/oauth2/token"
 
+if not client_id or not client_secret:
+    raise RuntimeError("Missing CLIENT_ID/CLIENT_SECRET in environment.")
+
+if app.r is None:
+    raise RuntimeError(
+        "Redis is not configured or not reachable (app.r is None). "
+        "Set REDIS_URL and ensure the Redis instance is accessible from the cron environment."
+    )
+
 t = app.r.get("token")
 if not t:
     raise RuntimeError("No token found in Redis under key 'token'. Re-auth via / first.")
 
 data = json.loads(t.decode("utf-8"))
-
-if not client_id or not client_secret:
-    raise RuntimeError("Missing CLIENT_ID/CLIENT_SECRET in environment.")
+print("Current token:", data)
 
 refreshed_token = x.refresh_token(
     token_url=token_url,
@@ -34,4 +41,5 @@ refreshed_token = x.refresh_token(
 
 app.r.set("token", json.dumps(refreshed_token))
 payload = {"text": AUTOMATED_TWEET}
+print("Posting tweet:", payload)
 app.create_post(payload, refreshed_token)
